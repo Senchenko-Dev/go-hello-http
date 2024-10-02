@@ -1,12 +1,29 @@
-FROM golang:alpine AS build-env
-WORKDIR $GOPATH/src/github.com/ironcore864/go-hello-http
-COPY . .
-RUN apk add git
-RUN go get ./... && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o hello
+# Используем официальный образ Go
+FROM golang:1.20 AS builder
 
-FROM alpine
+# Устанавливаем рабочую директорию
 WORKDIR /app
-COPY --from=build-env /go/src/github.com/ironcore864/go-hello-http/hello /app/
-CMD ["./hello"]
-USER 1000
-EXPOSE 8080/tcp
+
+# Копируем go.mod и go.sum
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Копируем исходный код
+COPY . .
+
+# Собираем приложение
+RUN go build -o hello-world
+
+# Используем минимальный образ для запуска
+FROM alpine:latest
+
+WORKDIR /root/
+
+# Копируем скомпилированное приложение из предыдущего образа
+COPY --from=builder /app/hello-world .
+
+# Открываем порт
+EXPOSE 8080
+
+# Запускаем приложение
+CMD ["./hello-world"]
